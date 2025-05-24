@@ -1,0 +1,453 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## Entra Privileged Identity Management Role & Group Settings Changes"
+      },
+      "name": "text - 2"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "crossComponentResources": [
+          "value::all"
+        ],
+        "parameters": [
+          {
+            "id": "8d8c5a13-5e9f-4cfe-8004-7663776a8caf",
+            "version": "KqlParameterItem/1.0",
+            "name": "Workspace",
+            "type": 5,
+            "query": "resources\r\n| where type =~ 'microsoft.operationalinsights/workspaces'\r\n| project id",
+            "crossComponentResources": [
+              "value::all"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": []
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": "/subscriptions/138d05dc-c3df-401f-bf1f-4e9e6c2334c0/resourceGroups/rg_sentinel01/providers/Microsoft.OperationalInsights/workspaces/AVSentinel01"
+          },
+          {
+            "id": "timerange",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "type": 4,
+            "isRequired": true,
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 300000
+                },
+                {
+                  "durationMs": 900000
+                },
+                {
+                  "durationMs": 1800000
+                },
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 1209600000
+                },
+                {
+                  "durationMs": 2419200000
+                },
+                {
+                  "durationMs": 2592000000
+                },
+                {
+                  "durationMs": 5184000000
+                },
+                {
+                  "durationMs": 7776000000
+                }
+              ]
+            },
+            "value": {
+              "durationMs": 86400000
+            }
+          }
+        ],
+        "style": "pills",
+        "queryType": 1,
+        "resourceType": "microsoft.resourcegraph/resources"
+      },
+      "name": "parameters - 0"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "title": "PIM Changes Overview",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "AuditLogs\r\n| where Category == \"RoleManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| project modifiedBy=tostring(InitiatedBy.user.userPrincipalName)\r\n| summarize Changes = count() by modifiedBy\r\n| order by Changes desc",
+              "size": 1,
+              "title": "Privileged Roles & Groups Top editors",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "gridSettings": {
+                "rowLimit": 10
+              }
+            },
+            "customWidth": "60",
+            "name": "Top Editors",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "AuditLogs\r\n| where Category == \"RoleManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| summarize count() by OperationName, bin(TimeGenerated, 1d)",
+              "size": 1,
+              "title": "PIM Settings Change History",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "barchart"
+            },
+            "customWidth": "40",
+            "name": "query - 4",
+            "styleSettings": {
+              "showBorder": true
+            }
+          }
+        ]
+      },
+      "name": "TopGroup1",
+      "styleSettings": {
+        "showBorder": true
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AuditLogs\r\n| where Category == \"RoleManagement\" or Category == \"GroupManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| extend userPrincipalName = tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)\r\n//| extend Role = tostring(TargetResources[0].displayName)\r\n| extend Role = case(\r\n    Category == 'RoleManagement',tostring(TargetResources[0].displayName),\r\n    \"\")\r\n| extend Group = case(\r\n    Category  == \"GroupManagement\", tostring(TargetResources[2].displayName),\r\n    \"\")\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"ipaddr\"\r\n    | extend ipaddr = tostring(item.value)\r\n    )\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"UserAgent\"\r\n    | extend UserAgent = tostring(item.value)\r\n    )\r\n| extend geo_ip = tostring(geo_info_from_ip_address(ipaddr))\r\n| sort by TimeGenerated asc \r\n| sort by TimeGenerated asc \r\n| extend ChangedSettings = replace(\"Setting changes in this session: \", \"\", tostring(ResultReason))\r\n| extend ModifiedSettings = extract_all(@\"(.*?)\\.\", ChangedSettings)\r\n| project-away ChangedSettings\r\n| project\r\n    TimeGenerated,\r\n    Role,\r\n    Group,\r\n    ResultReason,\r\n    //ModifiedSettings,\r\n    userPrincipalName,\r\n    Identity,\r\n    ipaddr,\r\n    //UserAgent,\r\n    //geo_ip,\r\n    CorrelationId\r\n\r\n\r\n",
+        "size": 0,
+        "title": "PIM Role / Group Settings Changes",
+        "timeContextFromParameter": "TimeRange",
+        "showRefreshButton": true,
+        "exportFieldName": "CorrelationId",
+        "exportParameterName": "SelectedCorrelationId",
+        "showExportToExcel": true,
+        "exportToExcelOptions": "all",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "Role",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholdsOptions": "colors",
+                "thresholdsGrid": [
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Global Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Privileged Role Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Security Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Conditional Access Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Authentication Policy Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "User Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Application Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Cloud Application Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Groups Administrator",
+                    "representation": "orange",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Device Administrator",
+                    "representation": "orange",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Intune Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Security Reader",
+                    "representation": "yellow",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Reports Reader",
+                    "representation": "yellow",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Global Reader",
+                    "representation": "yellow",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Directory Readers",
+                    "representation": "yellow",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "License Administrator",
+                    "representation": "yellow",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Authentication Policy Administrator\t",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Privileged Authentication Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Exchange Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "SharePoint Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Security Operator",
+                    "representation": "orange",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "Teams Administrator",
+                    "representation": "redBright",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "Default",
+                    "thresholdValue": null,
+                    "text": "{0}{1}"
+                  }
+                ]
+              },
+              "numberFormat": {
+                "unit": 0,
+                "options": {
+                  "style": "decimal"
+                }
+              }
+            }
+          ],
+          "filter": true,
+          "sortBy": [
+            {
+              "itemKey": "userPrincipalName",
+              "sortOrder": 2
+            }
+          ]
+        },
+        "sortBy": [
+          {
+            "itemKey": "userPrincipalName",
+            "sortOrder": 2
+          }
+        ]
+      },
+      "name": "PIMSettingsChanges",
+      "styleSettings": {
+        "showBorder": true
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AuditLogs\r\n| where CorrelationId == \"{SelectedCorrelationId}\"\r\n| where Category == \"RoleManagement\" or Category == \"GroupManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| extend userPrincipalName = tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)\r\n| extend Role = case(\r\n    Category == 'RoleManagement',tostring(TargetResources[0].displayName),\r\n    \"\")\r\n| extend Group = case(\r\n    Category  == \"GroupManagement\", tostring(TargetResources[2].displayName),\r\n    \"\")\r\n| sort by TimeGenerated asc \r\n| extend ChangedSettings = replace(\"Setting changes in this session: \", \"\", tostring(ResultReason))\r\n| extend ModifiedSettings = extract_all(@\"(.*?)\\.\", ChangedSettings)\r\n| project-away ChangedSettings\r\n| project\r\n    TimeGenerated,\r\n    ResultReason,\r\n    ModifiedSettings,\r\n    CorrelationId\r\n    | mvexpand ModifiedSettings\r\n    | distinct tostring(ModifiedSettings)\r\n    | where tostring(ModifiedSettings) !contains '00:00:00'\r\n",
+        "size": 1,
+        "title": "PIM Role / Group Settings Change Details",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "ModifiedSettings",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholdsOptions": "icons",
+                "thresholdsGrid": [
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "enabled",
+                    "representation": "dot-blue",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "contains",
+                    "thresholdValue": "disabled",
+                    "representation": "dot-red",
+                    "text": "{0}{1}"
+                  },
+                  {
+                    "operator": "Default",
+                    "thresholdValue": null,
+                    "representation": "dot-gray",
+                    "text": "{0}{1}"
+                  }
+                ],
+                "customColumnWidthSetting": "100ch"
+              }
+            }
+          ]
+        }
+      },
+      "conditionalVisibility": {
+        "parameterName": "SelectedCorrelationId",
+        "comparison": "isNotEqualTo"
+      },
+      "customWidth": "50",
+      "name": "ChangesDetail",
+      "styleSettings": {
+        "showBorder": true
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AuditLogs\r\n| where CorrelationId == \"{SelectedCorrelationId}\"\r\n| where Category == \"RoleManagement\" or Category == \"GroupManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"ipaddr\"\r\n    | extend ipaddr = tostring(item.value)\r\n    )\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"UserAgent\"\r\n    | extend UserAgent = tostring(item.value)\r\n    )\r\n| extend geo_ip = tostring(geo_info_from_ip_address(ipaddr))\r\n| sort by TimeGenerated asc \r\n| project\r\n    TimeGenerated,\r\n    ipaddr,\r\n    geo_ip,\r\n    CorrelationId\r\n    | project geo_ip, ipaddr\r\n    | extend IPAddress = ipaddr\r\n    | extend longitude = tostring(parse_json(geo_ip).longitude)\r\n    | extend latitude = tostring(parse_json(geo_ip).latitude)\r\n    | extend Country = tostring(parse_json(geo_ip).country)\r\n    | extend State = tostring(parse_json(geo_ip).state)\r\n    | extend City = tostring(parse_json(geo_ip).city)\r\n    | project IPAddress, Country, State,City, longitude, latitude\r\n    \r\n\r\n    \r\n    ",
+        "size": 1,
+        "title": "Location of Change",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "mapSettings": {
+          "locInfo": "LatLong",
+          "locInfoColumn": "Country",
+          "latitude": "latitude",
+          "longitude": "latitude",
+          "sizeSettings": "City",
+          "sizeAggregation": "Sum",
+          "opacity": 1,
+          "labelSettings": "LocationSummary",
+          "legendMetric": "LocationSummary",
+          "legendAggregation": "Count",
+          "itemColorSettings": null
+        }
+      },
+      "conditionalVisibility": {
+        "parameterName": "SelectedCorrelationId",
+        "comparison": "isNotEqualTo"
+      },
+      "customWidth": "50",
+      "name": "map",
+      "styleSettings": {
+        "showBorder": true
+      }
+    }
+  ],
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
