@@ -30,7 +30,7 @@
             },
             "queryType": 1,
             "resourceType": "microsoft.resourcegraph/resources",
-            "value": "/subscriptions/138d05dc-c3df-401f-bf1f-4e9e6c2334c0/resourceGroups/rg_sentinel01/providers/Microsoft.OperationalInsights/workspaces/AVSentinel01"
+            "value": ""
           },
           {
             "id": "timerange",
