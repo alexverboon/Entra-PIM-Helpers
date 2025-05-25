@@ -12,9 +12,6 @@
       "type": 9,
       "content": {
         "version": "KqlParameterItem/1.0",
-        "crossComponentResources": [
-          "value::all"
-        ],
         "parameters": [
           {
             "id": "8d8c5a13-5e9f-4cfe-8004-7663776a8caf",
@@ -85,15 +82,16 @@
                 {
                   "durationMs": 7776000000
                 }
-              ]
+              ],
+              "allowCustom": true
             },
             "value": {
-              "durationMs": 86400000
+              "durationMs": 7776000000
             }
           }
         ],
         "style": "pills",
-        "queryType": 1,
+        "queryType": 0,
         "resourceType": "microsoft.resourcegraph/resources"
       },
       "name": "parameters - 0"
@@ -109,7 +107,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "AuditLogs\r\n| where Category == \"RoleManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| project modifiedBy=tostring(InitiatedBy.user.userPrincipalName)\r\n| summarize Changes = count() by modifiedBy\r\n| order by Changes desc",
+              "query": "AuditLogs\r\n| where Category == \"RoleManagement\" or Category == \"GroupManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| project modifiedBy=tostring(InitiatedBy.user.userPrincipalName)\r\n| summarize Changes = count() by modifiedBy\r\n| order by Changes desc",
               "size": 1,
               "title": "Privileged Roles & Groups Top editors",
               "timeContextFromParameter": "TimeRange",
@@ -132,7 +130,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "AuditLogs\r\n| where Category == \"RoleManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| summarize count() by OperationName, bin(TimeGenerated, 1d)",
+              "query": "AuditLogs\r\n| where Category == \"RoleManagement\" or Category == \"GroupManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| summarize count() by OperationName, bin(TimeGenerated, 1d)",
               "size": 1,
               "title": "PIM Settings Change History",
               "timeContextFromParameter": "TimeRange",
@@ -160,7 +158,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AuditLogs\r\n| where Category == \"RoleManagement\" or Category == \"GroupManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| extend userPrincipalName = tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)\r\n//| extend Role = tostring(TargetResources[0].displayName)\r\n| extend Role = case(\r\n    Category == 'RoleManagement',tostring(TargetResources[0].displayName),\r\n    \"\")\r\n| extend Group = case(\r\n    Category  == \"GroupManagement\", tostring(TargetResources[2].displayName),\r\n    \"\")\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"ipaddr\"\r\n    | extend ipaddr = tostring(item.value)\r\n    )\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"UserAgent\"\r\n    | extend UserAgent = tostring(item.value)\r\n    )\r\n| extend geo_ip = tostring(geo_info_from_ip_address(ipaddr))\r\n| sort by TimeGenerated asc \r\n| sort by TimeGenerated asc \r\n| extend ChangedSettings = replace(\"Setting changes in this session: \", \"\", tostring(ResultReason))\r\n| extend ModifiedSettings = extract_all(@\"(.*?)\\.\", ChangedSettings)\r\n| project-away ChangedSettings\r\n| project\r\n    TimeGenerated,\r\n    Role,\r\n    Group,\r\n    ResultReason,\r\n    //ModifiedSettings,\r\n    userPrincipalName,\r\n    Identity,\r\n    ipaddr,\r\n    //UserAgent,\r\n    //geo_ip,\r\n    CorrelationId\r\n\r\n\r\n",
+        "query": "AuditLogs\r\n| where Category == \"RoleManagement\" or Category == \"GroupManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| extend userPrincipalName = tostring(parse_json(tostring(InitiatedBy.user)).userPrincipalName)\r\n| extend Role = case(\r\n    Category == 'RoleManagement',tostring(TargetResources[0].displayName),\r\n    \"\")\r\n| extend Group = case(\r\n    Category  == \"GroupManagement\", tostring(TargetResources[2].displayName),\r\n    \"\")\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"ipaddr\"\r\n    | extend ipaddr = tostring(item.value)\r\n    )\r\n| extend geo_ip = tostring(geo_info_from_ip_address(ipaddr))\r\n| sort by TimeGenerated asc \r\n| sort by TimeGenerated asc \r\n| extend ChangedSettings = replace(\"Setting changes in this session: \", \"\", tostring(ResultReason))\r\n| extend ModifiedSettings = extract_all(@\"(.*?)\\.\", ChangedSettings)\r\n| project-away ChangedSettings\r\n| project\r\n    TimeGenerated,\r\n    Role,\r\n    Group,\r\n    ResultReason,\r\n    userPrincipalName,\r\n    Identity,\r\n    ipaddr,\r\n    CorrelationId\r\n\r\n\r\n",
         "size": 0,
         "title": "PIM Role / Group Settings Changes",
         "timeContextFromParameter": "TimeRange",
@@ -333,15 +331,15 @@
           "filter": true,
           "sortBy": [
             {
-              "itemKey": "userPrincipalName",
-              "sortOrder": 2
+              "itemKey": "TimeGenerated",
+              "sortOrder": 1
             }
           ]
         },
         "sortBy": [
           {
-            "itemKey": "userPrincipalName",
-            "sortOrder": 2
+            "itemKey": "TimeGenerated",
+            "sortOrder": 1
           }
         ]
       },
@@ -411,7 +409,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AuditLogs\r\n| where CorrelationId == \"{SelectedCorrelationId}\"\r\n| where Category == \"RoleManagement\" or Category == \"GroupManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"ipaddr\"\r\n    | extend ipaddr = tostring(item.value)\r\n    )\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"UserAgent\"\r\n    | extend UserAgent = tostring(item.value)\r\n    )\r\n| extend geo_ip = tostring(geo_info_from_ip_address(ipaddr))\r\n| sort by TimeGenerated asc \r\n| project\r\n    TimeGenerated,\r\n    ipaddr,\r\n    geo_ip,\r\n    CorrelationId\r\n    | project geo_ip, ipaddr\r\n    | extend IPAddress = ipaddr\r\n    | extend longitude = tostring(parse_json(geo_ip).longitude)\r\n    | extend latitude = tostring(parse_json(geo_ip).latitude)\r\n    | extend Country = tostring(parse_json(geo_ip).country)\r\n    | extend State = tostring(parse_json(geo_ip).state)\r\n    | extend City = tostring(parse_json(geo_ip).city)\r\n    | project IPAddress, Country, State,City, longitude, latitude\r\n    \r\n\r\n    \r\n    ",
+        "query": "AuditLogs\r\n| where CorrelationId == \"{SelectedCorrelationId}\"\r\n| where Category == \"RoleManagement\" or Category == \"GroupManagement\"\r\n| where OperationName == \"Update role setting in PIM\"\r\n| mv-apply item = AdditionalDetails on (\r\n    where tostring(item.key) == \"ipaddr\"\r\n    | extend ipaddr = tostring(item.value)\r\n    )\r\n| extend geo_ip = tostring(geo_info_from_ip_address(ipaddr))\r\n| sort by TimeGenerated asc \r\n| project\r\n    TimeGenerated,\r\n    ipaddr,\r\n    geo_ip,\r\n    CorrelationId\r\n    | project geo_ip, ipaddr\r\n    | extend IPAddress = ipaddr\r\n    | extend longitude = tostring(parse_json(geo_ip).longitude)\r\n    | extend latitude = tostring(parse_json(geo_ip).latitude)\r\n    | extend Country = tostring(parse_json(geo_ip).country)\r\n    | extend State = tostring(parse_json(geo_ip).state)\r\n    | extend City = tostring(parse_json(geo_ip).city)\r\n    | project IPAddress, Country, State,City, longitude, latitude\r\n    \r\n\r\n    \r\n    ",
         "size": 1,
         "title": "Location of Change",
         "timeContextFromParameter": "TimeRange",
@@ -447,7 +445,8 @@
     }
   ],
   "fallbackResourceIds": [
-    "Azure Monitor"
+    "/subscriptions/18b4b535-bd09-4c23-8c23-67caaed27a97/resourcegroups/rg-sentinel-sec-prd-gwc-01/providers/microsoft.operationalinsights/workspaces/la-sentinel-kxo-sec-prd-gwc-01"
   ],
+  "fromTemplateId": "sentinel-UserWorkbook",
   "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
 }
