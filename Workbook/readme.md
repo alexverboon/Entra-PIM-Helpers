@@ -4,7 +4,7 @@ Use this workbook to track changes to Entra PIM Roles and Group Settings
 
 ## Requirements
 
-This workbook uses the Entra ID ***AuditLog*** as source.
+This workbook uses the Entra ID ***AuditLogs*** as source.
 
 ## References
 
